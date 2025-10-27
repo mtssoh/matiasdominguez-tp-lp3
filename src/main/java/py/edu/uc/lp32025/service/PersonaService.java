@@ -1,4 +1,4 @@
-package py.edu.uc.lp32025.Service;
+package py.edu.uc.lp32025.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

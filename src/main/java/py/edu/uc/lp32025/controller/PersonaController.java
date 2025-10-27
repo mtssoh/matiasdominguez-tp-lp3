@@ -4,7 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import py.edu.uc.lp32025.Exception.FechaNacimientoInvalidaException;
-import py.edu.uc.lp32025.Service.PersonaService;
+import py.edu.uc.lp32025.service.PersonaService;
 import py.edu.uc.lp32025.domain.Persona;
 
 import java.util.List;
