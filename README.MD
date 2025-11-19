@@ -270,3 +270,8 @@ Respuesta esperada (estructura):
   "mensaje": "Empleado no encontrado con id 9999"
 }
 ```
+
+### El proyecto cuenta con swagger, acceder a:
+```
+http://localhost:8080/swagger-ui/index.html#/
+```
