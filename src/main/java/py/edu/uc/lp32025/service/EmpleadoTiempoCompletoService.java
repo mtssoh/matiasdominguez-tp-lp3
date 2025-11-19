@@ -11,6 +11,7 @@ import py.edu.uc.lp32025.domain.Contratista;
 import py.edu.uc.lp32025.domain.EmpleadoPorHoras;
 import py.edu.uc.lp32025.domain.EmpleadoTiempoCompleto;
 import py.edu.uc.lp32025.domain.Persona;
+import py.edu.uc.lp32025.dto.BatchEmpleadosRequest;
 import py.edu.uc.lp32025.repository.ContratistaRepository;
 import py.edu.uc.lp32025.repository.EmpleadoPorHorasRepository;
 import py.edu.uc.lp32025.repository.EmpleadoTiempoCompletoRepository;
@@ -43,52 +44,100 @@ public class EmpleadoTiempoCompletoService {
 
     // 4.1 Persistencia en Batch (chunks de 100, Bean Validation + validaciones específicas por tipo)
     @Transactional
-    public BatchResultado guardarEmpleadosEnBatch(List<EmpleadoTiempoCompleto> empleados) {
-        if (empleados == null || empleados.isEmpty()) return BatchResultado.vacio();
+    public BatchResultado guardarEmpleadosEnBatch(BatchEmpleadosRequest request) {
+        if (request == null || request.estaVacio()) {
+            return BatchResultado.vacio();
+        }
 
         List<String> errores = new ArrayList<>();
         int totalProcesados = 0;
         int totalGuardados = 0;
 
-        for (int i = 0; i < empleados.size(); i += CHUNK) {
-            int fin = Math.min(i + CHUNK, empleados.size());
-            List<EmpleadoTiempoCompleto> chunk = empleados.subList(i, fin);
+        // 1) Unificar todos los empleados en una sola lista polimórfica
+        List<Persona> todos = new ArrayList<>();
 
-            List<EmpleadoTiempoCompleto> validos = new ArrayList<>();
+        if (request.getEmpleadosTiempoCompleto() != null) {
+            todos.addAll(request.getEmpleadosTiempoCompleto());
+        }
+        if (request.getEmpleadosPorHoras() != null) {
+            todos.addAll(request.getEmpleadosPorHoras());
+        }
+        if (request.getContratistas() != null) {
+            todos.addAll(request.getContratistas());
+        }
+
+        if (todos.isEmpty()) {
+            return BatchResultado.vacio();
+        }
+
+        // 2) Procesar en chunks
+        for (int i = 0; i < todos.size(); i += CHUNK) {
+            int fin = Math.min(i + CHUNK, todos.size());
+            List<Persona> chunk = todos.subList(i, fin);
+
+            // Listas separadas para guardar según tipo concreto
+            List<EmpleadoTiempoCompleto> etcValidos = new ArrayList<>();
+            List<EmpleadoPorHoras> ephValidos = new ArrayList<>();
+            List<Contratista> cValidos = new ArrayList<>();
+
             for (int j = 0; j < chunk.size(); j++) {
-                EmpleadoTiempoCompleto e = chunk.get(j);
+                Persona p = chunk.get(j);
                 totalProcesados++;
 
-                // Bean Validation
-                Set<ConstraintViolation<EmpleadoTiempoCompleto>> viols = validator.validate(e);
+                // Bean Validation (sobre Persona concreta)
+                Set<ConstraintViolation<Object>> viols = validator.validate(p);
                 if (!viols.isEmpty()) {
                     String msg = viols.stream()
                             .map(v -> v.getPropertyPath() + ": " + v.getMessage())
                             .collect(Collectors.joining("; "));
-                    errores.add("Chunk " + (i/CHUNK) + " item " + j + ": " + msg);
+                    errores.add("Chunk " + (i / CHUNK) + " item " + j + ": " + msg);
                     continue;
                 }
 
-                // Validaciones específicas (polimorfismo vía método de la superclase)
-                if (!e.validarDatosEspecificos()) {
-                    errores.add("Chunk " + (i/CHUNK) + " item " + j + ": validaciones específicas fallidas");
+                // Validaciones específicas polimórficas
+                if (!p.validarDatosEspecificos()) {
+                    errores.add("Chunk " + (i / CHUNK) + " item " + j + ": validaciones específicas fallidas");
                     continue;
                 }
 
-                validos.add(e);
+                // Clasificar por tipo concreto para guardar en el repo adecuado
+                if (p instanceof EmpleadoTiempoCompleto etc) {
+                    etcValidos.add(etc);
+                } else if (p instanceof EmpleadoPorHoras eph) {
+                    ephValidos.add(eph);
+                } else if (p instanceof Contratista c) {
+                    cValidos.add(c);
+                } else {
+                    errores.add("Chunk " + (i / CHUNK) + " item " + j + ": tipo de persona no soportado: " + p.getClass().getSimpleName());
+                }
             }
 
-            if (!validos.isEmpty()) {
-                etcRepo.saveAll(validos);
-                // Optimización de memoria/flush por lote
+            // 3) Guardar en cada repositorio según el tipo
+            int guardadosEnEsteChunk = 0;
+
+            if (!etcValidos.isEmpty()) {
+                etcRepo.saveAll(etcValidos);
+                guardadosEnEsteChunk += etcValidos.size();
+            }
+            if (!ephValidos.isEmpty()) {
+                ephRepo.saveAll(ephValidos);
+                guardadosEnEsteChunk += ephValidos.size();
+            }
+            if (!cValidos.isEmpty()) {
+                cRepo.saveAll(cValidos);
+                guardadosEnEsteChunk += cValidos.size();
+            }
+
+            if (guardadosEnEsteChunk > 0) {
                 em.flush();
                 em.clear();
-                totalGuardados += validos.size();
+                totalGuardados += guardadosEnEsteChunk;
             }
         }
 
         return new BatchResultado(totalProcesados, totalGuardados, errores);
     }
+
 
 
     @Transactional

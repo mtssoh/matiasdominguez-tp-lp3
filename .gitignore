@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+*.db
+*.sqlite
+*.mv.db
+*.h2.db
+*.sql
+*.dump
+*.bak
+

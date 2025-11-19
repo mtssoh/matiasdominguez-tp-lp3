@@ -16,7 +16,6 @@ public class PersonaService {
     private PersonaRepository personaRepository;
 
     // --- Crear o actualizar ---
-
     public Persona guardarPersona(Persona persona) {
         if (persona.getFechaNacimiento() == null) {
             throw new FechaNacimientoInvalidaException("La fecha de nacimiento no puede ser nula");
@@ -28,7 +27,6 @@ public class PersonaService {
 
         return personaRepository.save(persona);
     }
-
 
     // --- Listar todas ---
     public List<Persona> listarPersonas() {
@@ -47,5 +45,12 @@ public class PersonaService {
         }
         personaRepository.deleteById(id);
         return true;
+    }
+
+    // --- Filtrar por nombre o apellido ---
+    public List<Persona> filtrarPorNombre(String nombre) {
+        // Usa el mismo valor para nombre y apellido, así busca en ambos campos
+        return personaRepository
+                .findByNombreContainingIgnoreCaseOrApellidoContainingIgnoreCase(nombre, nombre);
     }
 }
