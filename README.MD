@@ -273,5 +273,5 @@ Respuesta esperada (estructura):
 
 ### El proyecto cuenta con swagger, acceder a:
 ```
-http://localhost:8080/swagger-ui/index.html#/
+http://localhost:8080/swagger-ui/index.html#/s
 ```
